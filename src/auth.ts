@@ -100,30 +100,45 @@ export function isExpired(creds: Credentials): boolean {
 }
 
 /**
- * Accept either a browser "Copy as cURL" command or a bare cookie string and
- * return the Cookie header value. Mirrors shanbay-cli's parser.
+ * Accept a browser "Copy as cURL" command, a bare cookie string, or a single
+ * `Cookie:` header line, and return the Cookie header value.
+ *
+ * Chrome/Firefox export cookies three different ways depending on the request:
+ * `-H 'cookie: …'`, `-b '…'` / `--cookie '…'`, or a bare cookie on the clipboard.
  */
 export function parseCookieInput(input: string): string {
-  const s = input.replace(/\\\n/g, " ").replace(/\n/g, " ")
-  let rest: string
-  const cookieIdx = s.toLowerCase().indexOf("cookie:")
-  if (cookieIdx >= 0) {
-    rest = s.slice(cookieIdx + "cookie:".length).replace(/^\s+/, "")
-  } else if (s.includes("csrftoken=")) {
-    rest = s.slice(s.indexOf("csrftoken="))
-  } else {
-    throw new AuthError("没找到 Cookie 头（也没有 csrftoken=）。请粘贴 curl 命令或裸 Cookie 字符串。")
+  // Flatten shell line continuations, then work on one line.
+  const s = input.replace(/\\\r?\n/g, " ").replace(/\r?\n/g, " ").trim()
+
+  let value: string | undefined
+
+  // -H 'cookie: …' / --header 'Cookie: …'
+  const header = /(?:-H|--header)\s+(['"])\s*cookie:\s*([\s\S]*?)\1/i.exec(s)
+  if (header) value = header[2]
+
+  // -b '…' / --cookie '…'
+  if (value === undefined) {
+    const flag = /(?:^|\s)(?:-b|--cookie)\s+(['"])([\s\S]*?)\1(?:\s|$)/.exec(s)
+    if (flag) value = flag[2]
   }
 
-  // curl wraps the header value in quotes; a raw paste has none.
-  let end = rest.length
-  for (let i = 0; i < rest.length; i++) {
-    if (rest[i] === "'" || rest[i] === '"') {
-      end = i
-      break
-    }
+  // Bare paste: the whole input is the cookie (optionally quoted).
+  if (value === undefined && !/\bcurl\b/i.test(s)) {
+    value = s.replace(/^(['"])([\s\S]*)\1$/, "$2")
   }
-  const cookie = rest.slice(0, end).trim()
+
+  // Last resort: slice from csrftoken up to the next quote.
+  if (value === undefined && s.includes("csrftoken=")) {
+    value = s.slice(s.indexOf("csrftoken=")).replace(/['"][\s\S]*$/, "")
+  }
+
+  if (value === undefined) {
+    throw new AuthError(
+      "没找到 Cookie（没有 `-H 'cookie: …'`、`-b '…'`，也没有 csrftoken=）。请粘贴 curl 命令或裸 Cookie 字符串。",
+    )
+  }
+
+  const cookie = value.trim()
   if (!cookie.includes("csrftoken=")) throw new AuthError("Cookie 中缺少 csrftoken。")
   if (!cookie.includes("auth_token=")) {
     throw new AuthError("Cookie 中缺少 auth_token（请在登录后的页面复制请求）。")

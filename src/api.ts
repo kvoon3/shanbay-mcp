@@ -52,6 +52,7 @@ export type Vocabulary = {
   id?: string
   word?: string
   vocabulary_id?: string
+  dictionary_id?: string
   senses?: Sense[]
   sound?: Sound
 }
@@ -246,7 +247,11 @@ export class Client {
 
   // --- dictionary ---
 
-  /** Dictionary entry for a word (decoded): senses, IPA, audio urls. */
+  /**
+   * Dictionary entry for a word (decoded): senses, IPA, audio urls.
+   * `/wordsapp/words/vocab` ships no senses; they live in `vocab_senses`, so a
+   * second request fills them in (one extra call, same as the web client).
+   */
   async lookupVocab(word: string): Promise<Vocabulary | undefined> {
     let v: Vocabulary
     try {
@@ -257,7 +262,29 @@ export class Client {
       throw err
     }
     if (!v || typeof v !== "object" || (!v.id && !v.word)) return undefined
+    if (v.id && (v.senses?.length ?? 0) === 0) {
+      const senses = await this.vocabSenses([String(v.id)], v.dictionary_id).catch(
+        () => ({}) as Record<string, Vocabulary>,
+      )
+      const entry = senses[String(v.id)]
+      if (entry?.senses?.length) v.senses = entry.senses
+    }
     return v
+  }
+
+  /** Senses/IPA for vocabulary ids (decoded), keyed by vocabulary id. */
+  async vocabSenses(vocabIds: string[], dictId?: string): Promise<Record<string, Vocabulary>> {
+    if (vocabIds.length === 0) return {}
+    const res = await this.getDecoded<{ objects?: Vocabulary[] }>("/wordsapp/words/vocab_senses", {
+      vocab_ids: vocabIds.join(","),
+      dict_id: dictId,
+    })
+    const out: Record<string, Vocabulary> = {}
+    for (const o of res.objects ?? []) {
+      const id = String(o.vocabulary_id ?? o.id ?? "")
+      if (id) out[id] = o
+    }
+    return out
   }
 
   /** Example sentences for vocabulary ids (decoded), keyed by vocab id. */
@@ -276,13 +303,17 @@ export class Client {
     return out
   }
 
-  /** How many words sit in 生词本. */
+  /**
+   * How many words sit in 生词本. `/wordscollection/words/count` exists but
+   * answers `{"objects":null,"vocabulary":null}`, so ask the list for one row.
+   */
   async collectionCount(): Promise<number | undefined> {
-    const res = await this.getPlain<{ count?: number; value?: number; data?: { count?: number } }>(
-      "/wordscollection/words/count",
-    )
-    const n = res.count ?? res.value ?? res.data?.count
-    return n === undefined ? undefined : Number(n)
+    try {
+      const page = await this.listWords({ page: 1, ipp: 1 })
+      return page.total
+    } catch {
+      return undefined
+    }
   }
 
   /** Today's NEW/REVIEW counts for the current book (learning queue). */

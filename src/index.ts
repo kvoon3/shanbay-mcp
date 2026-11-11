@@ -109,13 +109,19 @@ function ipaText(v: Vocabulary | CollectionEntry | undefined): string {
   return [sound.ipa_uk && `UK /${sound.ipa_uk}/`, sound.ipa_us && `US /${sound.ipa_us}/`].filter(Boolean).join("  ")
 }
 
-function firstExample(examples: unknown[] | undefined): string | undefined {
+/** Examples are `{content_en, content_cn}` with the headword wrapped in <vocab>. */
+function stripVocabTags(s: string): string {
+  return s.replace(/<\/?vocab[^>]*>/g, "")
+}
+
+function firstExample(examples: unknown[] | undefined): { en: string; cn?: string } | undefined {
   for (const e of examples ?? []) {
-    if (typeof e === "string") return e
-    if (e && typeof e === "object") {
-      const o = e as Record<string, unknown>
-      const en = o.example_en ?? o.en ?? o.sentence ?? o.example
-      if (typeof en === "string" && en) return en
+    if (typeof e === "string" && e) return { en: e }
+    if (!e || typeof e !== "object") continue
+    const o = e as Record<string, unknown>
+    const en = o.content_en ?? o.content_en_v2 ?? o.example_en ?? o.en ?? o.sentence ?? o.example
+    if (typeof en === "string" && en) {
+      return { en: stripVocabTags(en), cn: typeof o.content_cn === "string" ? o.content_cn : undefined }
     }
   }
   return undefined
@@ -252,11 +258,14 @@ register(
       const inCollection = Boolean(collected[id])
       const example = firstExample(examplesMap[id])
 
+      const senseLines = (vocab.senses ?? [])
+        .map((x) => `- ${[x.pos, x.definition_cn ?? x.definition_en].filter(Boolean).join(" ")}`.trim())
+        .filter((x) => x !== "-")
       const lines = [
         `**${vocab.word ?? word}**  ${ipaText(vocab)}`.trim(),
-        sensesText(vocab) || "（无释义）",
+        senseLines.length ? senseLines.join("\n") : "（无释义）",
       ]
-      if (example) lines.push(`例：${example}`)
+      if (example) lines.push(`例：${example.en}${example.cn ? `\n　　${example.cn}` : ""}`)
       lines.push(inCollection ? "📌 已在生词本里" : "🆕 还没加入生词本")
 
       return ok(lines.join("\n"), {

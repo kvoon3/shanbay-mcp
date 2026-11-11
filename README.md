@@ -83,14 +83,15 @@ testdata/       真实加密响应 + 期望明文（golden vectors）
 
 | 用途 | 请求 |
 |---|---|
-| 查词条 | `GET /wordsapp/words/vocab?word=` → `{"data": enc}` |
-| 例句 | `GET /wordsapp/words/vocab_examples?vocab_ids=1,2&dict_id=` → `{"data": enc}` |
+| 查词条 | `GET /wordsapp/words/vocab?word=` → `{"data": enc}`（**没有** senses） |
+| 释义 | `GET /wordsapp/words/vocab_senses?vocab_ids=1,2&dict_id=` → 解码，按 `vocabulary_id` 取 `senses` |
+| 例句 | `GET /wordsapp/words/vocab_examples?vocab_ids=1,2&dict_id=` → 解码，`examples[].content_en/content_cn`（词头包在 `<vocab>` 里） |
 | 加入生词本 | `POST /wordscollection/words` `{"vocab_id":"…","business_id":6}` |
 | 批量加入 | `POST /wordscollection/words_bulk_upload` `{"business_id":6,"words":["a","b"]}` → `task_id`，然后 `GET …?business_id=6&task_id=` 轮询到 `status=4`，返回 `failed_words` |
 | 批量查重 | `GET /wordscollection/words_check?vocab_ids=1,2` → `data.objects[].exists` |
 | 列出 | `GET /wordscollection/words?page=1&ipp=20` |
 | 移除 | `DELETE /wordscollection/words` `{"vocab_ids":[…]}` |
-| 词数 | `GET /wordscollection/words/count` |
+| 词数 | `GET /wordscollection/words?page=1&ipp=1` 的 `total`（`/words/count` 只返回 `{"objects":null,"vocabulary":null}`） |
 
 `business_id=6` 是 web 端生词本用的业务号；批量上传单次上限 100 词（web 端硬限制）。
 
