@@ -134,7 +134,7 @@ export function parseCookieInput(input: string): string {
 
   if (value === undefined) {
     throw new AuthError(
-      "没找到 Cookie（没有 `-H 'cookie: …'`、`-b '…'`，也没有 csrftoken=）。请粘贴 curl 命令或裸 Cookie 字符串。",
+      "这段文本里找不到 Cookie：既没有 `-H 'cookie: …'` / `-b '…'`，也没有 csrftoken=。请粘贴 curl 命令或裸 Cookie 字符串。",
     )
   }
 

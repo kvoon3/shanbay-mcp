@@ -29,7 +29,7 @@ export class ApiError extends Error {
 /** 412: the server is still computing the day's learning data. */
 export class DataNotReadyError extends ApiError {
   constructor(path: string) {
-    super(`${path}: 扇贝后端还在准备今日数据 (HTTP 412)`, 412)
+    super(`${path}: 服务端还没算完今天的词表 (HTTP 412)，稍后重试`, 412)
     this.name = "DataNotReadyError"
   }
 }
@@ -127,7 +127,7 @@ export class Client {
     if (DEBUG) console.error(`[shanbay] ${method} ${url} -> ${res.status} ${text.slice(0, 500)}`)
 
     if (res.status === 401 || res.status === 403) {
-      throw new AuthError(`登录态失效 (HTTP ${res.status} on ${path})。请重新登录扇贝（login 工具或 sb login）。`)
+      throw new AuthError(`登录状态无效或已过期 (HTTP ${res.status} on ${path})。请重新登录扇贝（login 工具或 sb login）。`)
     }
     if (res.status === 412) throw new DataNotReadyError(path)
     if (res.status >= 400) {
