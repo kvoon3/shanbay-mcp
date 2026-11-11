@@ -1,9 +1,31 @@
 {
   "name": "shanbay-mcp",
   "version": "0.1.0",
+  "description": "MCP server for the Shanbay (扇贝) word collection: look words up, check duplicates, and add them to your 生词本 in bulk.",
   "type": "module",
-  "private": true,
-  "bin": { "shanbay-mcp": "./src/index.ts" },
+  "license": "MIT",
+  "author": "Kevin Kwong <https://github.com/kvoon3>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kvoon3/shanbay-mcp.git"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "shanbay",
+    "扇贝",
+    "vocabulary",
+    "english-learning"
+  ],
+  "bin": {
+    "shanbay-mcp": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE",
+    "THIRD-PARTY-NOTICES.md"
+  ],
   "scripts": {
     "start": "bun src/index.ts",
     "test": "bun test",
@@ -16,5 +38,8 @@
   "devDependencies": {
     "@types/bun": "latest",
     "typescript": "^5.8.2"
+  },
+  "engines": {
+    "bun": ">=1.2"
   }
 }

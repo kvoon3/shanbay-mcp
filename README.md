@@ -19,18 +19,23 @@ MCP（Model Context Protocol）服务，暴露 7 个工具：
 [shanbay-cli](https://github.com/3b391433/shanbay-cli)（`sb`）解决的是「在终端里背单词」：拉取今日队列、评分、回写进度、打卡。
 它**没有**往生词本添加词的能力。本项目补上这一段，并复用它的登录态（同一个 cookie 文件），所以 `sb login` 之后本服务直接可用。
 
-接口来自扇贝 web 端（`web.shanbay.com/wordsweb`）的私有 apiv3：`wordscollection/*` 是生词本，`wordsapp/words/vocab` 是词条。
-部分响应是 `{"data":"<bayDecode>"}` 的混淆字符串，`src/decode.ts` 是 [shanbay-cli](https://github.com/3b391433/shanbay-cli)
-解码算法的 TypeScript 移植（对着真实响应做过 golden 校验，见 `testdata/`）。
+接口来自扇贝 web 端（`web.shanbay.com/wordsweb`）的私有 apiv3：`wordscollection/*` 是生词本，
+`wordsapp/words/*` 是词条。部分响应是 `{"data":"<bayDecode>"}` 的混淆字符串，`src/decode.ts` 是
+[honwhy/shanbay-ext](https://github.com/honwhy/shanbay-ext)（MIT）里解码算法的 TypeScript 移植，
+同时补了它的逆函数 `encode()`，所以解码器可以用自造数据做往返测试，不用把扇贝的词典内容塞进仓库。
+
+`sb` 那个项目本身没有开源许可，因此本项目**没有复制它的任何代码**——它只是让我们看清了缺失的那一块是
+「生词本接口」。详见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。
 
 ## 安装
 
 ```bash
-cd ~/i/shanbay-mcp
+git clone https://github.com/kvoon3/shanbay-mcp
+cd shanbay-mcp
 bun install
 ```
 
-无需构建，`bun src/index.ts` 直接跑 TypeScript。
+无需构建，`bun src/index.ts` 直接跑 TypeScript（需要 [Bun](https://bun.sh) ≥ 1.2）。
 
 ## 登录
 
@@ -52,13 +57,14 @@ pi（`~/.pi/agent/mcp.json`）：
   "mcpServers": {
     "shanbay": {
       "command": "bun",
-      "args": ["/Users/kvoon/i/shanbay-mcp/src/index.ts"]
+      "args": ["/absolute/path/to/shanbay-mcp/src/index.ts"]
     }
   }
 }
 ```
 
-Claude Desktop / Cursor 同理（`command` 用 `bun` 的绝对路径，例如 `$(which bun)`）。
+改完在会话里跑 `/reload`，再用 `/mcp` 确认已连接。Claude Desktop / Cursor 同理——建议 `command`
+写 `bun` 的绝对路径（`which bun`），GUI 应用不一定会继承你 shell 里的 PATH。
 
 调试时加 `SHANBAY_DEBUG=1`，所有请求和响应会打到 stderr。
 
@@ -72,12 +78,22 @@ bun src/index.ts  # 本地起 stdio server，可直接喂 JSON-RPC
 目录：
 
 ```
-src/decode.ts   bayDecode 解码（TinyMT PRNG + base32 前缀树）
+src/decode.ts   bayDecode 编解码（TinyMT PRNG + base32 前缀树），移植自 MIT 的 honwhy/shanbay-ext
 src/auth.ts     cookie 读取/解析/保存（与 sb CLI 共用文件）
 src/api.ts      apiv3 客户端：生词本增删查、词条查询、批量上传轮询
 src/index.ts    MCP server 与 7 个工具
-testdata/       真实加密响应 + 期望明文（golden vectors）
+scripts/capture-fixture.ts  抓一份真实响应到本地 testdata/（可选，不入库）
 ```
+
+想额外验证「解码器对线上响应仍然正确」：
+
+```bash
+bun scripts/capture-fixture.ts serendipity   # 需要已登录，写入 testdata/（.gitignore）
+bun test                                     # 多跑一组 golden 校验：解码后逐字节比对 + 重新加密还原原文
+```
+
+`testdata/` 不进仓库：里面是扇贝的词典内容，抓不抓、留不留是你自己的事。默认测试用 `encode`/`decode`
+往返自证，仓库里没有任何第三方内容。
 
 ## 接口备忘（实测）
 
@@ -96,3 +112,12 @@ testdata/       真实加密响应 + 期望明文（golden vectors）
 `business_id=6` 是 web 端生词本用的业务号；批量上传单次上限 100 词（web 端硬限制）。
 
 非官方接口，扇贝改版可能失效。仅供个人账号自用，别拿去做批量爬取。
+
+## 许可
+
+[MIT](LICENSE) © 2026 Kevin Kwong
+
+解码算法移植自 [honwhy/shanbay-ext](https://github.com/honwhy/shanbay-ext)（MIT, © 2024 Honwhy Wang），
+完整许可见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。
+[shanbay-cli](https://github.com/3b391433/shanbay-cli) 未附许可，本项目未复制其代码，仅在致谢里注明启发。
+与扇贝官方无关。
