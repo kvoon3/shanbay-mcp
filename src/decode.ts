@@ -242,15 +242,17 @@ const B64_INV: Int16Array = (() => {
  * `base64.StdEncoding.DecodeString` for the inputs this decoder can produce:
  * length must be a multiple of 4, padding is required, only the final quantum
  * may be padded, and no non-alphabet bytes are accepted.
+ *
+ * Exported for tests only — {@link decode} is the public entry point.
  */
-function base64Decode(raw: Uint8Array): Uint8Array {
+export function base64Decode(raw: Uint8Array): Uint8Array {
   const n = raw.length;
   if (n % 4 !== 0) {
     throw new Error(`decode: invalid base64 length ${n} (not a multiple of 4)`);
   }
+  // Padding, if any, must be a suffix of the input (at most 2 bytes).
   let pad = 0;
-  if (n > 0 && raw[n - 1] === PAD) pad = 1;
-  if (n > 1 && raw[n - 2] === PAD) pad = 2;
+  while (pad < 2 && n - 1 - pad >= 0 && raw[n - 1 - pad] === PAD) pad++;
   const body = n - pad;
   for (let i = 0; i < body; i++) {
     const c = raw[i];
@@ -271,8 +273,7 @@ function base64Decode(raw: Uint8Array): Uint8Array {
     const c1 = B64_INV[raw[i + 1]];
     const c2 = last && raw[i + 2] === PAD ? 0 : B64_INV[raw[i + 2]];
     const c3 = last && raw[i + 3] === PAD ? 0 : B64_INV[raw[i + 3]];
-    const triple =
-      (((c0 << 18) | (c1 << 12) | (c2 << 6) | c3) >>> 0) >>> 0;
+    const triple = ((c0 << 18) | (c1 << 12) | (c2 << 6) | c3) >>> 0;
     const bytes = last ? 3 - pad : 3;
     if (bytes > 0) out[o++] = (triple >>> 16) & 0xff;
     if (bytes > 1) out[o++] = (triple >>> 8) & 0xff;

@@ -3,7 +3,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { checkVersion, decode } from "./decode";
+import { base64Decode, checkVersion, decode } from "./decode";
 
 const TESTDATA = fileURLToPath(new URL("../testdata/", import.meta.url));
 
@@ -59,3 +59,26 @@ describe("rejects payloads that are not bayDecode-encoded", () => {
     });
   }
 });
+
+describe("base64Decode (internal, Go StdEncoding parity)", () => {
+  const enc = (s: string) => new TextEncoder().encode(s)
+  const dec = (s: string) => new TextDecoder().decode(base64Decode(enc(s)))
+
+  test("decodes all three padding shapes", () => {
+    expect(dec("TWFu")).toBe("Man")
+    expect(dec("TWE=")).toBe("Ma")
+    expect(dec("TQ==")).toBe("M")
+  })
+
+  test("rejects a length that is not a multiple of 4", () => {
+    expect(() => dec("TWE")).toThrow(/multiple of 4/)
+  })
+
+  test("rejects interior padding (regression: AA=A was accepted)", () => {
+    expect(() => dec("AA=A")).toThrow()
+  })
+
+  test("rejects non-alphabet bytes", () => {
+    expect(() => dec("TW.u")).toThrow(/illegal base64 byte/)
+  })
+})
