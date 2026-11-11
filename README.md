@@ -1,31 +1,21 @@
 # shanbay-mcp
 
-扇贝（Shanbay）生词本的 MCP server — 边聊天边把遇到的新词扔进生词本。
+把生词加入[扇贝](https://web.shanbay.com/wordsweb/)生词本的 MCP server。
 
-MCP（Model Context Protocol）服务，暴露 7 个工具：
+扇贝 web 端使用一套私有 apiv3；`src/decode.ts` 负责其 `{"data":"<bayDecode>"}` 混淆响应的编解码。
+登录态与 [shanbay-cli](https://github.com/3b391433/shanbay-cli)（`sb`）共用同一个 cookie 文件。
 
-| 工具 | 作用 |
+## 工具
+
+| 工具 | 说明 |
 |---|---|
-| `login` | 粘贴浏览器 Cookie / cURL 登录，写入 `~/.config/shanbay-cli/cookie`（0600） |
-| `account_status` | 账号、token 过期时间、生词本词数、今日新词/待复习 |
-| `lookup` | 查词：中英释义、词性、音标、例句，并告诉你是否已在生词本 |
-| `check_words` | 批量查重：词库有没有、生词本有没有 |
-| `add_words` | **批量加生词**（自动去重、每 100 个一批），返回没加进去的词 |
+| `login` | 用浏览器 Cookie / cURL 登录，写入 `~/.config/shanbay-cli/cookie`（0600） |
+| `account_status` | 账号、token 过期时间、生词本词数、今日新词与待复习 |
+| `lookup` | 查词：释义、词性、音标、例句，并标明是否已在生词本 |
+| `check_words` | 批量查重：词库是否存在、生词本是否已有 |
+| `add_words` | 批量添加生词，自动去重，按 100 词分批，返回未添加的词 |
 | `list_words` | 分页浏览生词本 |
-| `remove_words` | 移除生词（需 `confirm: true`） |
-
-## 为什么不直接用 shanbay-cli
-
-[shanbay-cli](https://github.com/3b391433/shanbay-cli)（`sb`）解决的是「在终端里背单词」：拉取今日队列、评分、回写进度、打卡。
-它**没有**往生词本添加词的能力。本项目补上这一段，并复用它的登录态（同一个 cookie 文件），所以 `sb login` 之后本服务直接可用。
-
-接口来自扇贝 web 端（`web.shanbay.com/wordsweb`）的私有 apiv3：`wordscollection/*` 是生词本，
-`wordsapp/words/*` 是词条。部分响应是 `{"data":"<bayDecode>"}` 的混淆字符串，`src/decode.ts` 是
-[honwhy/shanbay-ext](https://github.com/honwhy/shanbay-ext)（MIT）里解码算法的 TypeScript 移植，
-同时补了它的逆函数 `encode()`，所以解码器可以用自造数据做往返测试，不用把扇贝的词典内容塞进仓库。
-
-`sb` 那个项目本身没有开源许可，因此本项目**没有复制它的任何代码**——它只是让我们看清了缺失的那一块是
-「生词本接口」。详见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。
+| `remove_words` | 移除生词，需 `confirm: true` |
 
 ## 安装
 
@@ -35,20 +25,20 @@ cd shanbay-mcp
 bun install
 ```
 
-无需构建，`bun src/index.ts` 直接跑 TypeScript（需要 [Bun](https://bun.sh) ≥ 1.2）。
+需要 [Bun](https://bun.sh) ≥ 1.2。无需构建，直接运行 TypeScript。
 
 ## 登录
 
-任选一种，都写同一个文件：
+以下任选其一，均写入 `~/.config/shanbay-cli/cookie`：
 
-1. `sb login` — 粘贴浏览器「复制为 cURL」（推荐）
-2. 调 `login` 工具，参数传 cURL 文本或裸 Cookie 字符串
-3. `export SHANBAY_COOKIE='csrftoken=...; auth_token=...'`（临时，不落盘）
+1. `sb login`，粘贴浏览器复制的 cURL（推荐，与 CLI 共用）
+2. 调用 `login` 工具，参数为 cURL 文本或裸 Cookie 字符串
+3. 设置 `SHANBAY_COOKIE='csrftoken=…; auth_token=…'`（仅当前进程有效）
 
-取 cookie：浏览器打开 <https://web.shanbay.com/wordsweb/> 并登录 → F12 → 网络 → 任意 `apiv3.shanbay.com` 请求 → 右键「复制为 cURL」。
-`auth_token` 约 3 个月过期，过期后重新登录一次。
+获取 Cookie：登录 <https://web.shanbay.com/wordsweb/>，打开开发者工具的「网络」面板，任选一条
+`apiv3.shanbay.com` 请求，右键「复制为 cURL」。`auth_token` 有效期约三个月，过期后重新登录即可。
 
-## 注册到 MCP 客户端
+## 接入 MCP 客户端
 
 pi（`~/.pi/agent/mcp.json`）：
 
@@ -63,61 +53,59 @@ pi（`~/.pi/agent/mcp.json`）：
 }
 ```
 
-改完在会话里跑 `/reload`，再用 `/mcp` 确认已连接。Claude Desktop / Cursor 同理——建议 `command`
-写 `bun` 的绝对路径（`which bun`），GUI 应用不一定会继承你 shell 里的 PATH。
+修改后执行 `/reload`，用 `/mcp` 确认连接。Claude Desktop、Cursor 配置相同；GUI 应用不继承 shell 的
+PATH，建议 `command` 填 `bun` 的绝对路径（`which bun`）。
 
-调试时加 `SHANBAY_DEBUG=1`，所有请求和响应会打到 stderr。
+设置 `SHANBAY_DEBUG=1` 可将全部请求与响应输出到 stderr。
 
 ## 开发
 
 ```bash
-bun test        # 解码 golden 向量 + cookie 解析
-bun src/index.ts  # 本地起 stdio server，可直接喂 JSON-RPC
+bun test            # 单元测试（离线）
+bun run typecheck   # tsc --noEmit
+bun src/index.ts    # 本地启动 stdio server
 ```
 
-目录：
-
 ```
-src/decode.ts   bayDecode 编解码（TinyMT PRNG + base32 前缀树），移植自 MIT 的 honwhy/shanbay-ext
-src/auth.ts     cookie 读取/解析/保存（与 sb CLI 共用文件）
-src/api.ts      apiv3 客户端：生词本增删查、词条查询、批量上传轮询
-src/index.ts    MCP server 与 7 个工具
-scripts/capture-fixture.ts  抓一份真实响应到本地 testdata/（可选，不入库）
+src/decode.ts               bayDecode 编解码（TinyMT PRNG + base32 前缀树）
+src/auth.ts                 cookie 读取、解析、保存
+src/api.ts                  apiv3 客户端：词条查询、生词本增删查、批量上传轮询
+src/index.ts                MCP server 与 7 个工具
+scripts/capture-fixture.ts  抓取真实响应到本地 testdata/
 ```
 
-想额外验证「解码器对线上响应仍然正确」：
+测试默认只依赖 `encode`/`decode` 往返，不包含任何第三方数据。如需验证解码器对线上响应仍然正确：
 
 ```bash
-bun scripts/capture-fixture.ts serendipity   # 需要已登录，写入 testdata/（.gitignore）
-bun test                                     # 多跑一组 golden 校验：解码后逐字节比对 + 重新加密还原原文
+bun scripts/capture-fixture.ts serendipity   # 需已登录，写入 testdata/（已 gitignore）
+bun test                                     # 追加 golden 校验：逐字节比对并重新加密还原原文
 ```
-
-`testdata/` 不进仓库：里面是扇贝的词典内容，抓不抓、留不留是你自己的事。默认测试用 `encode`/`decode`
-往返自证，仓库里没有任何第三方内容。
 
 ## 接口备忘（实测）
 
 | 用途 | 请求 |
 |---|---|
-| 查词条 | `GET /wordsapp/words/vocab?word=` → `{"data": enc}`（**没有** senses） |
+| 查词条 | `GET /wordsapp/words/vocab?word=` → `{"data": enc}`（不含 senses） |
 | 释义 | `GET /wordsapp/words/vocab_senses?vocab_ids=1,2&dict_id=` → 解码，按 `vocabulary_id` 取 `senses` |
-| 例句 | `GET /wordsapp/words/vocab_examples?vocab_ids=1,2&dict_id=` → 解码，`examples[].content_en/content_cn`（词头包在 `<vocab>` 里） |
+| 例句 | `GET /wordsapp/words/vocab_examples?vocab_ids=1,2&dict_id=` → 解码，`examples[].content_en` / `content_cn`（词头包在 `<vocab>` 中） |
 | 加入生词本 | `POST /wordscollection/words` `{"vocab_id":"…","business_id":6}` |
-| 批量加入 | `POST /wordscollection/words_bulk_upload` `{"business_id":6,"words":["a","b"]}` → `task_id`，然后 `GET …?business_id=6&task_id=` 轮询到 `status=4`，返回 `failed_words` |
+| 批量加入 | `POST /wordscollection/words_bulk_upload` `{"business_id":6,"words":["a","b"]}` → `task_id`；轮询 `GET …?business_id=6&task_id=` 至 `status=4`，返回 `failed_words` |
 | 批量查重 | `GET /wordscollection/words_check?vocab_ids=1,2` → `data.objects[].exists` |
-| 列出 | `GET /wordscollection/words?page=1&ipp=20` |
+| 列表 | `GET /wordscollection/words?page=1&ipp=20` |
 | 移除 | `DELETE /wordscollection/words` `{"vocab_ids":[…]}` |
-| 词数 | `GET /wordscollection/words?page=1&ipp=1` 的 `total`（`/words/count` 只返回 `{"objects":null,"vocabulary":null}`） |
+| 词数 | `GET /wordscollection/words?page=1&ipp=1` 的 `total`（`/words/count` 返回 `{"objects":null,"vocabulary":null}`） |
 
-`business_id=6` 是 web 端生词本用的业务号；批量上传单次上限 100 词（web 端硬限制）。
+`business_id=6` 为 web 端生词本业务号；批量上传单次上限 100 词。
 
-非官方接口，扇贝改版可能失效。仅供个人账号自用，别拿去做批量爬取。
+以上均为非官方接口，可能随扇贝改版失效，仅供个人账号自用。
 
-## 许可
+## License
 
 [MIT](LICENSE) © 2026 Kevin Kwong
 
-解码算法移植自 [honwhy/shanbay-ext](https://github.com/honwhy/shanbay-ext)（MIT, © 2024 Honwhy Wang），
-完整许可见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。
-[shanbay-cli](https://github.com/3b391433/shanbay-cli) 未附许可，本项目未复制其代码，仅在致谢里注明启发。
-与扇贝官方无关。
+## Credits
+
+- [honwhy/shanbay-ext](https://github.com/honwhy/shanbay-ext) — `src/decode.ts` 移植自其 bayDecode 实现（MIT, © 2024 Honwhy Wang）
+- [3b391433/shanbay-cli](https://github.com/3b391433/shanbay-cli) — 终端背单词工具，本项目与其共用登录态文件
+
+第三方代码与许可详情见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。
