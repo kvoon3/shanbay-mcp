@@ -64,10 +64,14 @@ PATH，建议 `command` 填 `bun` 的绝对路径（`which bun`）。
 除本地 stdio，也可以在 Workers 上跑一份，供手机或其他设备使用：
 
 ```bash
-bunx wrangler secret put SHANBAY_COOKIE    # 粘贴完整 Cookie 头（csrftoken + auth_token）
+# 登录态：把本机 sb 的 cookie 文件直接推进去（也可省略重定向，改为交互粘贴）
+bunx wrangler secret put SHANBAY_COOKIE < ~/.config/shanbay-cli/cookie
+
 bunx wrangler secret put MCP_AUTH_TOKEN    # 自己生成，例如 openssl rand -hex 24
 bunx wrangler deploy
 ```
+
+`auth_token` 过期（约三个月）后重跑第一条即可，无需改代码或重新部署。
 
 - `POST /mcp` 为 MCP 端点（Streamable HTTP，无状态），`GET /health` 用于探活。
 - 每个请求都要带 `Authorization: Bearer <MCP_AUTH_TOKEN>`；未配置该 Secret 时 Worker 返回 500，不会裸奔。

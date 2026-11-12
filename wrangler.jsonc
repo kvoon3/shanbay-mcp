@@ -6,6 +6,9 @@
   // The MCP SDK touches node: builtins in a few code paths; the compat flag keeps
   // bundling simple. Our own worker code stays web-standard only.
   "compatibility_flags": ["nodejs_compat"],
+  // Deployed on workers.dev; version preview URLs are not needed.
+  "workers_dev": true,
+  "preview_urls": false,
   "observability": {
     "enabled": true
   }
