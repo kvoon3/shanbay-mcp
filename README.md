@@ -59,6 +59,31 @@ PATH，建议 `command` 填 `bun` 的绝对路径（`which bun`）。
 
 设置 `SHANBAY_DEBUG=1` 可将全部请求与响应输出到 stderr。
 
+## 自建部署（Cloudflare Workers）
+
+除本地 stdio，也可以在 Workers 上跑一份，供手机或其他设备使用：
+
+```bash
+bunx wrangler secret put SHANBAY_COOKIE    # 粘贴完整 Cookie 头（csrftoken + auth_token）
+bunx wrangler secret put MCP_AUTH_TOKEN    # 自己生成，例如 openssl rand -hex 24
+bunx wrangler deploy
+```
+
+- `POST /mcp` 为 MCP 端点（Streamable HTTP，无状态），`GET /health` 用于探活。
+- 每个请求都要带 `Authorization: Bearer <MCP_AUTH_TOKEN>`；未配置该 Secret 时 Worker 返回 500，不会裸奔。
+- Worker 不写盘，`login` 工具在该模式下只返回提示；登录态过期后重新执行一次 `secret put`。
+
+客户端用 header 认证：
+
+```json
+"shanbay": {
+  "url": "https://<your-worker>/mcp",
+  "headers": { "Authorization": "Bearer ${SHANBAY_MCP_TOKEN}" }
+}
+```
+
+本地调试：`bun run dev:worker`，读取 `.dev.vars`（已 gitignore）。
+
 ## 开发
 
 ```bash
