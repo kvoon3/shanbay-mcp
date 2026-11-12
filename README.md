@@ -26,6 +26,7 @@ bun install
 ```
 
 需要 [Bun](https://bun.sh) ≥ 1.2。无需构建，直接运行 TypeScript。
+交给 agent 自动完成安装与注册：[AGENT-SETUP.md](AGENT-SETUP.md)（可粘贴的 prompt）。
 
 ## 登录
 
