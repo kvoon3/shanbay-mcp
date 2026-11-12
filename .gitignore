@@ -3,3 +3,5 @@ testdata/
 *.log
 cookie
 .DS_Store
+.dev.vars*
+.wrangler/

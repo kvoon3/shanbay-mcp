@@ -1,0 +1,12 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "shanbay-mcp",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-07-20",
+  // The MCP SDK touches node: builtins in a few code paths; the compat flag keeps
+  // bundling simple. Our own worker code stays web-standard only.
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true
+  }
+}
